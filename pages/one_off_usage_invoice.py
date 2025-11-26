@@ -595,7 +595,16 @@ def usage_one_off_invoices_page():
     """, unsafe_allow_html=True)
     
     # Display logo and title side by side
-    logo_url = os.getenv("FALL_BACK_LOGO")
+    # Default to Capitalize logo if FALL_BACK_LOGO is not set
+    capitalize_logo_url = "https://media.licdn.com/dms/image/v2/C4E0BAQGLQa71dANC4A/company-logo_200_200/company-logo_200_200/0/1664205665099/capitalize_logo?e=2147483647&v=beta&t=jo_HCFILbmPtoAtGUVdGPe7oTn-nL5AEe3EmD2Tezfo"
+    # Try Streamlit secrets first (for Cloud), then environment variable (for local)
+    try:
+        if hasattr(st, 'secrets') and "FALL_BACK_LOGO" in st.secrets:
+            logo_url = st.secrets["FALL_BACK_LOGO"]
+        else:
+            logo_url = os.getenv("FALL_BACK_LOGO", capitalize_logo_url)
+    except:
+        logo_url = os.getenv("FALL_BACK_LOGO", capitalize_logo_url)
     if logo_url:
         st.markdown(f'''
         <div class="logo-title-wrapper">

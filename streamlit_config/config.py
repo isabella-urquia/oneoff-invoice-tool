@@ -12,13 +12,26 @@ from helper.logger import print_logger
 
 
 
-# Load environment variables from .env file
+# Load environment variables from .env file (for local development)
 load_dotenv()
-MODE = os.getenv("MODE")
+
+# Helper function to get env vars from either secrets (Streamlit Cloud) or environment (local)
+def get_env_var(key, default=None):
+    """Get environment variable from Streamlit secrets (Cloud) or os.environ (local)"""
+    # Try Streamlit secrets first (for Cloud deployment)
+    try:
+        if hasattr(st, 'secrets') and key in st.secrets:
+            return st.secrets[key]
+    except:
+        pass
+    # Fall back to environment variable (for local development)
+    return os.getenv(key, default)
+
+MODE = get_env_var("MODE")
 PORT = st.get_option("server.port")
 
 def eval_bool_env_var(env_var_name, default_value=True):
-    env_var_value = os.getenv(env_var_name, default_value)
+    env_var_value = get_env_var(env_var_name, default_value)
     match env_var_value:
         case "True":
             return True
@@ -38,7 +51,7 @@ def eval_bool_env_var(env_var_name, default_value=True):
 custom_logos_enabled = eval_bool_env_var("LOGO_ENABLED", True) # If True, the custom logos will be enabled.
 APPLICATION_URL = f"http://localhost:{PORT}" if MODE == "local" else "https://nos-kwoy.onrender.com"
 TABS_LOGO = f"https://trust.tabs.inc/api/share/11385e5d-a2a5-4bd6-9e8d-c0721fbb422f/logo.png?version=2"
-fall_back_logo = os.getenv("FALL_BACK_LOGO", TABS_LOGO) # If custom logos are not enabled, the fallback logo will be used.
+fall_back_logo = get_env_var("FALL_BACK_LOGO", TABS_LOGO) # If custom logos are not enabled, the fallback logo will be used.
 
 
 if custom_logos_enabled:
@@ -61,10 +74,10 @@ else:
 
 
 def switch_to_default_env_merchant():
-    default_tabs_api_token = os.getenv("DEFAULT_TABS_API_KEY")
-    default_merchant_name = os.getenv("DEFAULT_MERCHANT_NAME", "Default Merchant")
-    default_environment = os.getenv("DEFAULT_ENVIRONMENT", os.getenv("ENVIRONMENT", "prod"))
-    default_merchant_id = os.getenv("DEFAULT_MERCHANT_ID", default_merchant_name)
+    default_tabs_api_token = get_env_var("DEFAULT_TABS_API_KEY")
+    default_merchant_name = get_env_var("DEFAULT_MERCHANT_NAME", "Default Merchant")
+    default_environment = get_env_var("DEFAULT_ENVIRONMENT", get_env_var("ENVIRONMENT", "prod"))
+    default_merchant_id = get_env_var("DEFAULT_MERCHANT_ID", default_merchant_name)
     print_logger("Default Token Found: ", default_tabs_api_token is not None and default_tabs_api_token != "")
     print_logger("default_merchant_name:",default_merchant_name)
     print_logger("default_environment:",default_environment)
@@ -100,8 +113,8 @@ def get_app_feature_flags():
     st.session_state.developer_settings_enabled = eval_bool_env_var("DEVELOPER_SETTINGS_ENABLED", True)          # If True, the developer settings will be enabled.
     st.session_state.one_off_usage_invoice_page_enabled = eval_bool_env_var("ONE_OFF_USAGE_INVOICES", True)      # If True, the one off usage invoice page will be enabled.
     st.session_state.simple_auth = eval_bool_env_var("SIMPLE_AUTH", False)                                       # If True, the simple auth will be enabled. It will only require a username and password to access the app.
-    st.session_state.password = os.getenv("PASSWORD")
-    st.session_state.page_title = os.getenv("PAGE_TITLE", "Tabs Internal Tool")
+    st.session_state.password = get_env_var("PASSWORD")
+    st.session_state.page_title = get_env_var("PAGE_TITLE", "Tabs Internal Tool")
     st.session_state.max_allowed_threads = int(os.getenv("DEFAULT_THREADS", 1))
 
     print_logger("=============== APP FEATURE FLAGS ==================")
@@ -129,7 +142,9 @@ def configure_page_config(expanded_sidebar=True):
     if "tabs_icon" not in st.session_state:
         st.session_state.tabs_icon = NOS_LOGO
     if "page_title" not in st.session_state:
-        page_title = "Tabs Internal Tool"
+        # Read from environment variable directly if not in session_state yet
+        page_title = get_env_var("PAGE_TITLE", "Tabs Internal Tool")
+        st.session_state.page_title = page_title
     else:
         page_title = st.session_state.page_title
     st.set_page_config(page_title=page_title, page_icon=st.session_state.tabs_icon,layout="wide", initial_sidebar_state="collapsed" if not expanded_sidebar else "expanded")
@@ -205,7 +220,7 @@ def set_up_openai_client(force=False):
 def initialize_core_session_state(force=False,environment=None):
     if "environment" not in st.session_state:
         get_app_feature_flags()
-        st.session_state.environment = os.getenv("ENVIRONMENT", "prod")
+        st.session_state.environment = get_env_var("ENVIRONMENT", "prod")
     # Ensure environment is set before configuring links
     if environment is None:
         environment = st.session_state.environment or "prod"
