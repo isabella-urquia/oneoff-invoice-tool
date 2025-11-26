@@ -20,15 +20,26 @@ def get_env_var(key, default=None):
     """Get environment variable from Streamlit secrets (Cloud) or os.environ (local)"""
     # Try Streamlit secrets first (for Cloud deployment)
     try:
-        if hasattr(st, 'secrets') and key in st.secrets:
-            return st.secrets[key]
+        import streamlit as st_module
+        if hasattr(st_module, 'secrets'):
+            try:
+                secrets = st_module.secrets
+                if key in secrets:
+                    return secrets[key]
+            except (AttributeError, RuntimeError, TypeError):
+                # Streamlit not initialized yet or secrets not available
+                pass
     except:
         pass
     # Fall back to environment variable (for local development)
     return os.getenv(key, default)
 
 MODE = get_env_var("MODE")
-PORT = st.get_option("server.port")
+# Get port safely - may not be available during import on Streamlit Cloud
+try:
+    PORT = st.get_option("server.port")
+except:
+    PORT = 8501  # Default port
 
 def eval_bool_env_var(env_var_name, default_value=True):
     env_var_value = get_env_var(env_var_name, default_value)
