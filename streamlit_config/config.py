@@ -6,13 +6,16 @@ import os
 import random
 from helper.task_queue import TaskQueue
 import time
-from dotenv import load_dotenv
 from helper.logger import print_logger
 
-
-
 # Load environment variables from .env file (for local development)
-load_dotenv()
+# Only load dotenv if available (not needed on Streamlit Cloud)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available (e.g., on Streamlit Cloud) - use st.secrets instead
+    pass
 
 # Helper function to get env vars from either secrets (Streamlit Cloud) or environment (local)
 def get_env_var(key, default=None):
