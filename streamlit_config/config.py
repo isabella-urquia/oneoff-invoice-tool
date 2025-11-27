@@ -1,5 +1,4 @@
 import streamlit as st
-from openai import OpenAI
 from api.main import check_valid_token
 from functools import wraps
 import shutil
@@ -19,17 +18,19 @@ load_dotenv()
 def get_env_var(key, default=None):
     """Get environment variable from Streamlit secrets (Cloud) or os.environ (local)"""
     # Try Streamlit secrets first (for Cloud deployment)
+    # Note: st is already imported at module level
     try:
-        import streamlit as st_module
-        if hasattr(st_module, 'secrets'):
+        if hasattr(st, 'secrets'):
             try:
-                secrets = st_module.secrets
-                if key in secrets:
-                    return secrets[key]
-            except (AttributeError, RuntimeError, TypeError):
+                # Access secrets directly - this works in Streamlit Cloud
+                if key in st.secrets:
+                    return st.secrets[key]
+            except (AttributeError, RuntimeError, TypeError, Exception) as e:
                 # Streamlit not initialized yet or secrets not available
+                print_logger(f"Could not access secrets for {key}: {e}")
                 pass
-    except:
+    except Exception as e:
+        print_logger(f"Error accessing secrets: {e}")
         pass
     # Fall back to environment variable (for local development)
     return os.getenv(key, default)
@@ -222,16 +223,7 @@ def switch_token(merchant_id, merchant_name, tabs_api_token, environment):
         time.sleep(1)
         st.rerun()
 
-def set_up_openai_client(force=False):
-    if "OPENAI_API_KEY" not in st.session_state or force:
-        st.session_state["OPENAI_API_KEY"] = None
-        if st.session_state.mode == "running_with_secrets":
-            if "OPENAI_API_KEY" in st.secrets:
-                st.session_state["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
-    if "OPENAI_CLIENT" not in st.session_state or force:
-        st.session_state["OPENAI_CLIENT"] = None
-        if st.session_state["OPENAI_API_KEY"] is not None:
-            st.session_state["OPENAI_CLIENT"] = OpenAI(api_key=st.session_state["OPENAI_API_KEY"])
+# OpenAI client setup removed - not used in this application
 
 def initialize_core_session_state(force=False,environment=None):
     if "environment" not in st.session_state:
