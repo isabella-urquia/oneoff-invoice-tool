@@ -95,14 +95,19 @@ def switch_to_default_env_merchant():
     # Only require API key - use defaults for merchant name and environment if not provided
     # Check that token exists and is not empty
     if default_tabs_api_token is not None and default_tabs_api_token.strip() != "":
-        switch_token(
-            merchant_id=default_merchant_id,
-            merchant_name=default_merchant_name,
-            tabs_api_token=default_tabs_api_token,
-            environment=default_environment
-        )
+        # Set values directly without making API call during initialization (non-blocking)
+        # The API validation will happen when user actually uses the app
+        st.session_state.merchant_id = default_merchant_id
+        st.session_state.tabs_api_token = default_tabs_api_token
+        st.session_state.merchant_name = default_merchant_name
+        st.session_state.environment = default_environment
+        configure_tabs_links(force=True, environment=default_environment)
+        # Don't validate token during initialization - it can hang the app
+        # Set valid_token to None initially, will be validated on first use
+        st.session_state.valid_token = None
+        print_logger("API credentials loaded from secrets/env - validation will happen on first use")
     else:
-        print_logger("DEFAULT_TABS_API_KEY not found or empty in .env file - API key will need to be set manually")
+        print_logger("DEFAULT_TABS_API_KEY not found or empty - API key will need to be set manually")
    
 def get_app_feature_flags():
     st.session_state.debug_mode_enabled = eval_bool_env_var("DEBUG_MODE_ENABLED", False) # If True, the debug mode will be enabled.
@@ -241,7 +246,7 @@ def initialize_core_session_state(force=False,environment=None):
         st.session_state.backend_url = "https://integrators.prod.api.tabsplatform.com"
     # set_up_openai_client(force=force)
     if "valid_token" not in st.session_state:
-        st.session_state.valid_token = False
+        st.session_state.valid_token = None  # None = not validated yet, False = invalid, True = valid
     if "tabs_api_token" not in st.session_state:
         st.session_state.tabs_api_token = None
     if "merchant_name" not in st.session_state:
