@@ -499,7 +499,17 @@ def invoice_configuration_step(current_step, steps, render_object=st):
 # Step 4
 def generate_invoice_step(current_step, steps, render_object=st):
     if current_step == 4:
-        invoices_already_generated = st.session_state.invoice_generation_results is not None
+        # Check if invoices are already completed (not just started)
+        invoices_already_generated = False
+        if st.session_state.one_off_invoice_batch_id is not None:
+            batch_stats = st.session_state.task_queue.get_batch_stats(st.session_state.one_off_invoice_batch_id)
+            total = batch_stats.get("total", 0)
+            completed = batch_stats.get("completed", 0)
+            failed = batch_stats.get("failed", 0)
+            all_done = (completed + failed) == total and total > 0
+            invoices_already_generated = all_done and st.session_state.invoice_generation_results is not None
+        elif st.session_state.invoice_generation_results is not None:
+            invoices_already_generated = True
         
         invoice_details = st.session_state.invoice_details_for_usage_one_off_invoices
         st.write("Configure the contract name and create the invoices")
@@ -526,9 +536,61 @@ def generate_invoice_step(current_step, steps, render_object=st):
             st.rerun()
 
 
+        # Show progress if invoices are being generated
         if st.session_state.one_off_invoice_batch_id is not None:
+            batch_stats = st.session_state.task_queue.get_batch_stats(st.session_state.one_off_invoice_batch_id)
+            total = batch_stats.get("total", 0)
+            completed = batch_stats.get("completed", 0)
+            failed = batch_stats.get("failed", 0)
+            pending = batch_stats.get("pending", 0)
+            running = batch_stats.get("running", 0)
+            
+            # Check if all tasks are done
+            is_processing = st.session_state.task_queue.processing
+            all_done = (completed + failed) == total and total > 0
+            
+            # Show progress bar with detailed status
+            progress_value = (completed + failed) / total if total > 0 else 0
+            progress_text = f"Generating invoices: {completed + failed}/{total} completed"
+            if completed > 0 or failed > 0:
+                progress_text += f" ({completed} succeeded"
+                if failed > 0:
+                    progress_text += f", {failed} failed"
+                progress_text += ")"
+            
+            st.progress(progress_value, text=progress_text)
+            
+            # Show detailed status messages
+            if is_processing or not all_done:
+                # Still processing - show status in columns
+                status_cols = st.columns([1, 1])
+                with status_cols[0]:
+                    if running > 0:
+                        st.info(f"🔄 **{running}** invoice(s) being created", icon=":material/hourglass_empty:")
+                    elif pending > 0:
+                        st.info(f"⏳ **{pending}** invoice(s) pending", icon=":material/schedule:")
+                    else:
+                        st.info("⏳ **Starting invoice generation...**", icon=":material/hourglass_empty:")
+                
+                with status_cols[1]:
+                    if completed > 0:
+                        st.success(f"✅ **{completed}** completed", icon=":material/check:")
+                    if failed > 0:
+                        st.error(f"❌ **{failed}** failed", icon=":material/error:")
+            else:
+                # All done - show success/warning prominently
+                if failed == 0:
+                    st.success(f"✅ **All invoices generated successfully!** ({completed} invoice(s) created)", icon=":material/check_circle:")
+                else:
+                    st.warning(f"⚠️ **Invoice generation completed with errors:** {completed} succeeded, {failed} failed", icon=":material/warning:")
+            
+            # Get results and update session state
             results = st.session_state.task_queue.get_batch_results(st.session_state.one_off_invoice_batch_id)
-            st.session_state.invoice_generation_results["Invoice Link"] = results
+            if results and len(results) > 0:
+                st.session_state.invoice_generation_results["Invoice Link"] = results
+            
+            # Update completion status
+            invoices_already_generated = all_done
 
         if invoices_already_generated:
             invoice_link = invoices_for_contract_name(contract_name)
@@ -658,7 +720,17 @@ def usage_one_off_invoices_page():
     if current_step == 3:
         invoice_configuration_step(current_step, steps)
     if current_step == 4:
-        generate_invoice_step(current_step, steps)
+        # Auto-refresh invoice generation step every 2 seconds while processing
+        @st.fragment(run_every=2)
+        def auto_refresh_invoice_step():
+            generate_invoice_step(current_step, steps)
+        
+        # Only use auto-refresh if invoices are being generated
+        if (st.session_state.one_off_invoice_batch_id is not None and 
+            st.session_state.task_queue.processing):
+            auto_refresh_invoice_step()
+        else:
+            generate_invoice_step(current_step, steps)
 
 
 
