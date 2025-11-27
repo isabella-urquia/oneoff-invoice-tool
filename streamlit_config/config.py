@@ -86,13 +86,27 @@ else:
 
 
 def switch_to_default_env_merchant():
-    default_tabs_api_token = get_env_var("DEFAULT_TABS_API_KEY")
+    # Try to access secrets directly first (for Streamlit Cloud)
+    default_tabs_api_token = None
+    try:
+        if hasattr(st, 'secrets') and "DEFAULT_TABS_API_KEY" in st.secrets:
+            default_tabs_api_token = st.secrets["DEFAULT_TABS_API_KEY"]
+            print_logger("Found API key in st.secrets")
+    except Exception as e:
+        print_logger(f"Error accessing st.secrets: {e}")
+    
+    # Fall back to get_env_var if not found in secrets
+    if not default_tabs_api_token:
+        default_tabs_api_token = get_env_var("DEFAULT_TABS_API_KEY")
+        print_logger("Using get_env_var for API key")
+    
     default_merchant_name = get_env_var("DEFAULT_MERCHANT_NAME", "Default Merchant")
     default_environment = get_env_var("DEFAULT_ENVIRONMENT", get_env_var("ENVIRONMENT", "prod"))
     default_merchant_id = get_env_var("DEFAULT_MERCHANT_ID", default_merchant_name)
     print_logger("Default Token Found: ", default_tabs_api_token is not None and default_tabs_api_token != "")
     print_logger("default_merchant_name:",default_merchant_name)
     print_logger("default_environment:",default_environment)
+    print_logger("default_tabs_api_token length:", len(default_tabs_api_token) if default_tabs_api_token else 0)
     # Only require API key - use defaults for merchant name and environment if not provided
     # Check that token exists and is not empty
     if default_tabs_api_token is not None and default_tabs_api_token.strip() != "":
