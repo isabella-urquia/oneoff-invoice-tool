@@ -25,17 +25,17 @@ def get_env_var(key, default=None):
                 # Access secrets directly - this works in Streamlit Cloud
                 if key in st.secrets:
                     return st.secrets[key]
-            except (AttributeError, RuntimeError, TypeError, Exception) as e:
-                # Streamlit not initialized yet or secrets not available
-                print_logger(f"Could not access secrets for {key}: {e}")
+            except (AttributeError, RuntimeError, TypeError, Exception):
+                # Streamlit not initialized yet or secrets not available - silently fall through
                 pass
-    except Exception as e:
-        print_logger(f"Error accessing secrets: {e}")
+    except Exception:
+        # Silently fall through to environment variable
         pass
     # Fall back to environment variable (for local development)
     return os.getenv(key, default)
 
-MODE = get_env_var("MODE")
+# Read MODE at module level - will use env var if secrets not available yet
+MODE = get_env_var("MODE", "local")
 # Get port safely - may not be available during import on Streamlit Cloud
 try:
     PORT = st.get_option("server.port")
