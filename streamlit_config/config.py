@@ -278,15 +278,15 @@ def initialize_core_session_state(force=False,environment=None):
         print_logger("APPLICATION URL",APPLICATION_URL)
     
     # Try to load default merchant/env on every run if not already set (not just first run)
-    # For local mode, always try to load; for other modes, only if token is missing
+    # For local/cloud/whitelisted modes, always try to load; for other modes, only if token is missing
     should_try_load = False
-    if MODE == "local" or MODE == "whitelisted":
+    if MODE == "local" or MODE == "whitelisted" or MODE == "cloud":
         should_try_load = True
     elif MODE is None or MODE == "":
         # If MODE isn't set, assume local development and try to load
         should_try_load = True
     
-    if should_try_load and (st.session_state.tabs_api_token is None or not st.session_state.valid_token):
+    if should_try_load and (st.session_state.tabs_api_token is None or st.session_state.valid_token is None):
         print_logger("Attempting to load default merchant and environment from .env")
         print_logger(f"MODE: {MODE}, Token exists: {st.session_state.tabs_api_token is not None}, Valid: {st.session_state.valid_token}")
         switch_to_default_env_merchant()
