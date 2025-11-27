@@ -549,40 +549,18 @@ def generate_invoice_step(current_step, steps, render_object=st):
             is_processing = st.session_state.task_queue.processing
             all_done = (completed + failed) == total and total > 0
             
-            # Show progress bar with detailed status
+            # Show simple progress bar
             progress_value = (completed + failed) / total if total > 0 else 0
-            progress_text = f"Generating invoices: {completed + failed}/{total} completed"
-            if completed > 0 or failed > 0:
-                progress_text += f" ({completed} succeeded"
-                if failed > 0:
-                    progress_text += f", {failed} failed"
-                progress_text += ")"
+            progress_text = f"{completed + failed}/{total} invoices processed"
             
             st.progress(progress_value, text=progress_text)
             
-            # Show detailed status messages
-            if is_processing or not all_done:
-                # Still processing - show status in columns
-                status_cols = st.columns([1, 1])
-                with status_cols[0]:
-                    if running > 0:
-                        st.info(f"🔄 **{running}** invoice(s) being created", icon=":material/hourglass_empty:")
-                    elif pending > 0:
-                        st.info(f"⏳ **{pending}** invoice(s) pending", icon=":material/schedule:")
-                    else:
-                        st.info("⏳ **Starting invoice generation...**", icon=":material/hourglass_empty:")
-                
-                with status_cols[1]:
-                    if completed > 0:
-                        st.success(f"✅ **{completed}** completed", icon=":material/check:")
-                    if failed > 0:
-                        st.error(f"❌ **{failed}** failed", icon=":material/error:")
-            else:
-                # All done - show success/warning prominently
+            # Show completion message when done
+            if all_done:
                 if failed == 0:
-                    st.success(f"✅ **All invoices generated successfully!** ({completed} invoice(s) created)", icon=":material/check_circle:")
+                    st.success(f"✅ **All {completed} invoice(s) generated successfully!**", icon=":material/check_circle:")
                 else:
-                    st.warning(f"⚠️ **Invoice generation completed with errors:** {completed} succeeded, {failed} failed", icon=":material/warning:")
+                    st.warning(f"⚠️ **Completed:** {completed} succeeded, {failed} failed", icon=":material/warning:")
             
             # Get results and update session state
             results = st.session_state.task_queue.get_batch_results(st.session_state.one_off_invoice_batch_id)
